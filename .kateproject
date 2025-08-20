@@ -1,0 +1,28 @@
+{
+   "name": "pcell",
+   "directory": "/home/mathias/Projects/github/pcell",
+   "files": [ {
+      "directory": ".", 
+      "filters": [".kateproject", "Makefile", "*.cpp", "*.h"],
+      "recursive": 1
+      } ],
+   "build": {
+      "directory": ".",
+      "targets": [
+         {"name": "run", "build_cmd" : "make", "run_cmd": "./pcell"},
+         {"name": "build", "build_cmd" : "make"},
+         {"name": "debug", "build_cmd" : "make debug"},
+         {"name": "clean", "build_cmd" : "make clean"}  ,
+         {"name": "tidy", "build_cmd" : "clang-tidy *.cpp -- -std=c++23"}
+      ]
+   },
+   "run": {
+    "directory": ".",
+    "executables": [
+      {
+        "name": "run debug",
+        "path": "./pcell",
+        "debug": true
+      }]
+   }
+}
