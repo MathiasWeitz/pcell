@@ -13,3 +13,6 @@ target.png	any png-files, that does not exists, is taken as target. The path to 
 	- `3`	bicubic regression, strongest effect, also the slowest, and still has artefacts on the edges of the image
 -  `-b`	integer - make multiple images with increased search-radius, the values start with the value provided by parameter `s`and end with `s+b`. The filename __must__ contain a percent sign, which will be replaced by a two digit value for the actual search-radius.
 
+![example 1](https://github.com/MathiasWeitz/pcell/blob/main/examples/1993_alpine_01.png)
+![example 2](./blob/main/examples/1993_alpine_01.png)
+![example 3](./examples/1993_alpine_01.png)
