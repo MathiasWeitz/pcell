@@ -1,6 +1,8 @@
 # pcell
 cli, resembles the kuwahara-filter for png-images.
 
+The basic idea is to take the standard deviation not only over an average (as the Kuwahara filter does), but alternatively over a gradient, and also over a quadratic or cubic smoothing.
+
 ![example](./examples/1993_alpine_01.png)
 
 The commandline does have following parameters\
@@ -22,3 +24,6 @@ The smaller the parameter s is compared to the parameter r, the blurrier the ima
 The computing time increases quadratically with the parameters r and s. However, r is the decisive parameter for the runtime.
 
 The program uses threads, so it should be fast for small parameters r. With parameter p equal to 2 or 3, linear regression cannot be performed, so the program becomes much slower.
+
+Unlike Kuwahara, all average values are calculated within a radius specified by s. This prevents the box-shaped artifacts of the classic Kuwahara filter.\
+However, this process is very memory-intensive. Therefore, you should first test whether your memory is sufficient.
