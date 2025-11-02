@@ -7,7 +7,7 @@ the commandline does have following parameters\
 	`-r`	integer	step1: radius of the circle, that is calculated for standard deviation\
 	`-s`	integer	step2: radius for looking for a circle from step1 with a low standard deviation\
 	`-p`	integer	formula for calculating the standard deviation, can have following values:\
-		`0`	take a mean of all channels, is closest to the standard kuwahara\
-		`1`	take a linear regression, fares much better with gradients of color\
-		`2`	biquadratic regression, strong effect, but is considerably slower\
-		`3`	bicubic regression, strongest effect, also the slowest, and still has artefacts on the edges of the image\
+		- `0`	take a mean of all channels, is closest to the standard kuwahara\
+		- `1`	take a linear regression, fares much better with gradients of color\
+		- `2`	biquadratic regression, strong effect, but is considerably slower\
+		- `3`	bicubic regression, strongest effect, also the slowest, and still has artefacts on the edges of the image\
