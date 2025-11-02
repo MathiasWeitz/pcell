@@ -22,6 +22,7 @@
 #include "pngSimple.h"
 #include "pngIO.h"
 // #include "matrix.h"
+#include "editDistance.h"
 #include "arguments.h"
 
 using namespace std;
@@ -36,7 +37,7 @@ struct ThreadParameter {
     int maskRadius = 5;
     int searchRadius = 5;
     int polynomOrder = 0;
-    int distanceDemerit = 0;
+    float distanceDemerit = 0;
 };
 
 void getCell1(CalcImg *c, const ThreadParameter &p) {
@@ -195,6 +196,117 @@ int main(int argc, char **argv) {
         std::cout << "Number of CPU cores: " << cpu_count << std::endl;
 
 #endif
+
+#if 0
+  // test cli-parameters
+  // pcell main with circle trheads and cli-parameter
+  // pcell -r 5 -p 0 -s 4 "/home/mathias/tmp/test/testVideos/t12.png"  "/home/mathias/tmp/test/tmpFilter15/result_%.png"
+  
+  
+   CliArgs cliArgs = CliArgs(argc, argv);
+   
+   int radius = 3;
+   int polynom = 1;
+   int radiusSearch = 2;
+   float distanceFactor = 0.0;
+   char* sourceFile = nullptr;
+   char* targetFile = nullptr;
+   
+    int processorUsedParallel = std::thread::hardware_concurrency() - 1;
+   
+    //cout << "test 1: " << endl;
+    
+   // read all the cli parameters
+    bool b = true;
+    bool argOpen = true;
+    while (b) {
+        b = false;
+        argOpen = true;
+        if (argOpen && cliArgs.has("-*r*")) {
+            argOpen = false;
+            cliArgs.next();
+            if (cliArgs.isInt()) {
+                radius = atoi(cliArgs.get());
+            }
+        }
+        if (argOpen && cliArgs.has("-*p*")) {
+            argOpen = false;
+            cliArgs.next();
+            if (cliArgs.isInt()) {
+                polynom = atoi(cliArgs.get());
+            }
+        }
+        if (argOpen && cliArgs.has("-*s*")) {
+            argOpen = false;
+            cliArgs.next();
+            if (cliArgs.isInt()) {
+                radiusSearch = atoi(cliArgs.get());
+            }
+        }
+        if (argOpen && cliArgs.has("-*d*")) {
+            argOpen = false;
+            cliArgs.next();
+            if (cliArgs.isFloat()) {
+                distanceFactor = atof(cliArgs.get()) / 250;
+            }
+        }
+        // cout << "int: " << cliArgs.isInt() << "\tfloat: " << cliArgs.isFloat() << endl;
+        if (argOpen) {
+            if (cliArgs.isExistingFile("*.png")) {
+              argOpen = false;
+              sourceFile = cliArgs.get();
+            }
+        }
+        if (argOpen) {
+            if (cliArgs.isFile("*.png")) {
+              argOpen = false;
+              targetFile = cliArgs.get();
+            }
+        }
+        b = cliArgs.next();
+    }
+    
+    cout << "radius: " << radius << "\tradiusSearch: " << radiusSearch << "\tpolynom: " << polynom << "\t" << distanceFactor << "\t" << sourceFile << "\t" << targetFile << endl;
+    if (sourceFile != nullptr && targetFile != nullptr) {
+      cout << "radius: " << radius << "\tradiusSearch: " << radiusSearch << "\tpolynom: " << polynom << "\t" << distanceFactor << "\t" << sourceFile << "\t" << targetFile << "\t" << strlen(targetFile) << endl;
+      
+      bool hasSearchradiusWildcard = false;
+      for (size_t i = 0; i < strlen(targetFile); i++) {
+        if (targetFile[i] == '%') hasSearchradiusWildcard = true;
+      }
+      
+      char* targetFileProcessed = new char[strlen(targetFile) + 50];
+      int iSource = 0;
+      int iTarget = 0;
+      while (targetFile[iSource] != '\0') {
+        // cout << targetFile[iSource] << endl;
+        targetFileProcessed[iTarget] = targetFile[iSource];
+        if (targetFile[iSource] == '%') {
+          char formattedInteger[10];
+          int iRepl = 0;
+          snprintf(formattedInteger, sizeof(formattedInteger), "%0*d", 6, radiusSearch);
+          while (formattedInteger[iRepl] != '\0') {
+            targetFileProcessed[iTarget] = formattedInteger[iRepl];
+            iRepl++;
+            iTarget++;
+          }
+          iTarget--;
+        }
+        
+        iSource++;
+        iTarget++;
+      }
+      targetFileProcessed[iTarget] = targetFile[iSource];
+      cout << targetFileProcessed << endl;
+      
+      delete[] targetFileProcessed;
+      
+      
+      
+    }
+  
+  
+#endif
   
 #if 1
   // pcell main with circle trheads and cli-parameter
@@ -206,9 +318,13 @@ int main(int argc, char **argv) {
    int radius = 3;
    int polynom = 1;
    int radiusSearch = 2;
+   float distanceFactor = 0.0;
    char* sourceFile = nullptr;
    char* targetFile = nullptr;
    
+   bool hasSearchradiusWildcard = false;
+   int searchBatchSize = 1;
+      
     int processorUsedParallel = std::thread::hardware_concurrency() - 1;
    
    // read all the cli parameters
@@ -238,6 +354,20 @@ int main(int argc, char **argv) {
                 radiusSearch = atoi(cliArgs.get());
             }
         }
+        if (argOpen && cliArgs.has("-*d*")) {
+            argOpen = false;
+            cliArgs.next();
+            if (cliArgs.isFloat()) {
+                distanceFactor = atof(cliArgs.get()) / 250;
+            }
+        }
+        if (argOpen && cliArgs.has("-*b*")) {
+            argOpen = false;
+            cliArgs.next();
+            if (cliArgs.isInt()) {
+                searchBatchSize = atoi(cliArgs.get());
+            }
+        }
         // cout << "int: " << cliArgs.isInt() << "\tfloat: " << cliArgs.isFloat() << endl;
         if (argOpen) {
             if (cliArgs.isExistingFile("*.png")) {
@@ -255,7 +385,11 @@ int main(int argc, char **argv) {
     }
 
     if (sourceFile != nullptr && targetFile != nullptr) {
-      // cout << "radius: " << radius << "\tradiusSearch: " << radiusSearch << "\tpolynom: " << polynom << "\t" << sourceFile << "\t" << targetFile << endl;
+      // cout << "radius: " << radius << "\tradiusSearch: " << radiusSearch << "\tpolynom: " << polynom << "\t" << distanceFactor << "\t" << sourceFile << "\t" << targetFile << endl;
+      for (size_t i = 0; i < strlen(targetFile); i++) {
+        if (targetFile[i] == '%') hasSearchradiusWildcard = true;
+      }
+      
       PNGRead *imageRead = new PNGRead(sourceFile);
       int h = imageRead->getHeight();
       int w = imageRead->getWidth();
@@ -272,13 +406,14 @@ int main(int argc, char **argv) {
       threadParameter.maskRadius = radius;
       threadParameter.searchRadius = radiusSearch;
       threadParameter.polynomOrder = polynom;
+      threadParameter.distanceDemerit = distanceFactor;
       
       // for every thread it's own CalcImg Instance
       CalcImg *segment[processorUsedParallel];
       for (int i = 0; i < processorUsedParallel; ++i) {
         segment[i] = new CalcImg(radius);
       }
-      // Step 1
+      // ********************************* Step 1
       counterAtomic = 0;
       std::thread *threads1 = new std::thread[processorUsedParallel];
       for (int i = 0; i < processorUsedParallel; ++i) {
@@ -291,32 +426,70 @@ int main(int argc, char **argv) {
       }
       delete[] threads1;
       delete imageRead;
-      // Step 2
-      counterAtomic = 0;
-      std::thread *threads2 = new std::thread[processorUsedParallel];
-
-      for (int i = 0; i < processorUsedParallel; ++i) {
-        threads2[i] = std::thread(getCell2, threadParameter); 
-        // erzeugt die Fehlerwerte
-        // threads2[i] = std::thread(getCellError, threadParameter);
-      }
-      for (int i = 0; i < processorUsedParallel; ++i) {
-        threads2[i].join();
-      }
-      delete[] threads2;
       
-      PNGWrite *imageWrite = new PNGWrite(targetFile);
-      imageWrite->setHeight(h);
-      imageWrite->setWidth(w);
-      for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-          int ii = y * w + x;
-          imageWrite->set(y, x, dataOfCalculation[ii].targetR, dataOfCalculation[ii].targetG, dataOfCalculation[ii].targetB);
+      // ********************************* Step 2
+      if (!hasSearchradiusWildcard) searchBatchSize = 1;
+      if (searchBatchSize < 1) searchBatchSize = 1;
+      for (int radiusSearchOffset = 0; radiusSearchOffset < searchBatchSize; radiusSearchOffset++) {
+        counterAtomic = 0;
+        threadParameter.searchRadius = radiusSearch + radiusSearchOffset;
+        
+        // replace wildcards for targetFile with parameters
+        char* targetFileProcessed = new char[strlen(targetFile) + 50];
+        int iSource = 0;
+        int iTarget = 0;
+        while (targetFile[iSource] != '\0') {
+          // cout << targetFile[iSource] << endl;
+          targetFileProcessed[iTarget] = targetFile[iSource];
+          if (targetFile[iSource] == '%') {
+            char formattedInteger[10];
+            int iRepl = 0;
+            snprintf(formattedInteger, sizeof(formattedInteger), "%0*d", 2, threadParameter.searchRadius);
+            while (formattedInteger[iRepl] != '\0') {
+              targetFileProcessed[iTarget] = formattedInteger[iRepl];
+              iRepl++;
+              iTarget++;
+            }
+            iTarget--;
+          }
+          iSource++;
+          iTarget++;
         }
+        targetFileProcessed[iTarget] = targetFile[iSource];
+        bool result = false;
+        if (getPathStatus(targetFileProcessed) != 0) result = true;
+        // cout << "isFile\t" << targetFileProcessed << "\t" << result << "\t" << getPathStatus(targetFileProcessed) << "\thasSearchwildcard:" << hasSearchradiusWildcard << endl;
+        if (result) {
+          std::thread *threads2 = new std::thread[processorUsedParallel];
+
+          for (int i = 0; i < processorUsedParallel; ++i) {
+            threads2[i] = std::thread(getCell2, threadParameter); 
+            // erzeugt die Fehlerwerte
+            // threads2[i] = std::thread(getCellError, threadParameter);
+          }
+          for (int i = 0; i < processorUsedParallel; ++i) {
+            threads2[i].join();
+          }
+          delete[] threads2;
+          
+          PNGWrite *imageWrite = new PNGWrite(targetFileProcessed);
+          imageWrite->setHeight(h);
+          imageWrite->setWidth(w);
+          for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+              int ii = y * w + x;
+              imageWrite->set(y, x, dataOfCalculation[ii].targetR, dataOfCalculation[ii].targetG, dataOfCalculation[ii].targetB);
+            }
+          }
+          imageWrite->write();
+          delete imageWrite;
+        }
+        delete[] targetFileProcessed;
       }
-      imageWrite->write();
-      delete imageWrite;
+      
       free(dataOfCalculation);
+      // delete[] sourceFile;
+      // delete[] targetFile;
     }
 
 #endif 
